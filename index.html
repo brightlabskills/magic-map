@@ -359,6 +359,7 @@
         let currentNodesLayout = [];
 
         function openRegion(regionId) {
+            document.getElementById('screen-region').style.backgroundImage = "url('" + REGIONS[id].bg + "')";
             state.currentRegion = regionId;
             state.currentNodeId = null; // Character starts at corner
             
