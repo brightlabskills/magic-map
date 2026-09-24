@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Волшебное Путешествие</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: white;
+            user-select: none;
+        }
+
+        .screen {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .char-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .char-card:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 25px -5px rgba(234, 179, 8, 0.5), 0 10px 10px -5px rgba(234, 179, 8, 0.2);
+        }
+
+        .char-card.selected {
+            border-color: #eab308; /* gold */
+            box-shadow: 0 0 30px #eab308;
+            transform: scale(1.05);
+        }
+
+        #map-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background-image: url('dc55376926f3c2cfe9a18a53802cd044.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+
+        #map-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+
+        .map-region {
+            fill: transparent;
+            stroke: transparent;
+            stroke-width: 0.5;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .map-region:hover {
+            fill: rgba(255, 255, 255, 0.2);
+            stroke: #fbbf24;
+            filter: drop-shadow(0 0 8px #fbbf24);
+        }
+
+        #region-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('dc55376926f3c2cfe9a18a53802cd044.jpg');
+            background-size: cover;
+            background-position: center;
+            filter: blur(8px) brightness(0.6);
+            transform: scale(1.1); /* Prevent blur edges */
+            z-index: 0;
+        }
+
+        .node {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border: 3px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            z-index: 20;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .node:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .node.completed {
+            background-color: #22c55e; /* green */
+            border-color: #166534;
+            box-shadow: 0 0 15px #22c55e;
+        }
+
+        .node.active-node {
+            background-color: #eab308; /* gold */
+            border-color: #a16207;
+            box-shadow: 0 0 20px #eab308;
+            animation: pulse-gold 2s infinite;
+        }
+
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 10px #eab308; }
+            50% { box-shadow: 0 0 25px #eab308; }
+            100% { box-shadow: 0 0 10px #eab308; }
+        }
+
+        #active-character {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid #fbbf24;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 0 20px #fbbf24;
+            background-size: cover;
+            background-position: center;
+            z-index: 30;
+            /* Magical bouncy transition */
+            transition: top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translate(-50%, -100%); /* Position above the node */
+            pointer-events: none; /* Let clicks pass through to nodes */
+        }
+        
+        .title-text {
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="screen-character" class="screen active flex-col items-center justify-center p-4">
+        <div class="absolute inset-0 bg-[url('dc55376926f3c2cfe9a18a53802cd044.jpg')] bg-cover bg-center opacity-30 blur-sm"></div>
+        <div class="z-10 text-center mb-8">
+            <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 drop-shadow-lg title-text">
+                Волшебное Путешествие
+            </h1>
+            <p class="text-xl md:text-2xl mt-4 text-gray-200 shadow-black drop-shadow-md">Выберите своего персонажа</p>
+        </div>
+
+        <div id="character-grid" class="z-10 grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 max-w-4xl w-full">
+            <!-- Characters injected by JS -->
+        </div>
+
+        <button id="btn-start" class="z-10 mt-10 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full text-xl font-bold shadow-lg shadow-green-500/50 hover:scale-110 transition-transform hidden">
+            Начать путешествие
+        </button>
+    </div>
+
+    <div id="screen-map" class="screen flex-col">
+        <div class="absolute top-4 left-4 z-20 flex gap-4">
+            <button onclick="changeScreen('character')" class="px-6 py-2 bg-gray-800/80 backdrop-blur border border-gray-600 rounded-full hover:bg-gray-700 transition">
+                Сменить персонажа
+            </button>
+            <button onclick="resetProgress()" class="px-6 py-2 bg-red-900/80 backdrop-blur border border-red-700 rounded-full hover:bg-red-800 transition">
+                Сбросить прогресс
+            </button>
+        </div>
+        
+        <div id="map-container">
+            <!-- Interactive SVG Regions -->
+            <!-- Coordinates are relative (viewBox 0 0 100 100) -->
+            <svg id="map-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <polygon class="map-region" points="0,0 45,0 35,45 0,40" data-region="Вулканические горы" onclick="openRegion('volcano')"></polygon>
+                <polygon class="map-region" points="45,0 100,0 100,45 60,55 35,45" data-region="Леса и зелень" onclick="openRegion('forest')"></polygon>
+                <polygon class="map-region" points="0,40 35,45 40,70 20,100 0,100" data-region="Песчаные земли" onclick="openRegion('desert')"></polygon>
+                <polygon class="map-region" points="20,100 40,70 65,70 70,100 20,100" data-region="Ледяные горы" onclick="openRegion('ice')"></polygon>
+                <polygon class="map-region" points="65,70 60,55 100,45 100,100 70,100" data-region="Руины" onclick="openRegion('ruins')"></polygon>
+                <circle class="map-region" cx="48" cy="48" r="12" data-region="Город магов" onclick="openRegion('city')"></circle>
+            </svg>
+        </div>
+        
+        <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-20 pointer-events-none text-center">
+            <h2 class="text-3xl font-bold text-white title-text">Карта Мира</h2>
+            <p class="text-lg text-yellow-300 title-text">Нажмите на область, чтобы начать исследование</p>
+        </div>
+    </div>
+
+    <div id="screen-region" class="screen flex-col overflow-hidden relative">
+        <div id="region-bg"></div>
+        
+        <!-- Header -->
+        <div class="absolute top-4 left-4 z-40">
+            <button onclick="changeScreen('map')" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-full font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Назад к карте
+            </button>
+        </div>
+        
+        <div class="absolute top-4 right-4 z-40 bg-black/50 backdrop-blur px-6 py-3 rounded-full border border-gray-600">
+            <h2 id="region-title" class="text-2xl font-bold text-yellow-400">Локация</h2>
+            <p id="region-progress-text" class="text-sm text-center">Заданий: 0/20</p>
+        </div>
+
+        <!-- Nodes Container -->
+        <div id="nodes-container" class="absolute top-0 left-0 w-full h-full z-10">
+            <!-- Nodes will be drawn here -->
+        </div>
+
+        <!-- Moving Character -->
+        <div id="active-character" style="left: 10%; top: 90%;"></div>
+    </div>
+
+    <script>
+        const CHARACTERS = [
+            '1268c2f8e42d10fa5e44dbec4d08119e.jpg',
+            '0bd8a95632a4840f8cbad9edcf35d8dd.jpg',
+            'db0b65ba407ce19c42f257301dbafa38.jpg',
+            '9878a44a867ecb786ec569d2d286741e.jpg',
+            '4af41855208f02c8cc21b3445a64a991.jpg',
+            '074ae04bfe125173aa128f1a1a1281ee.jpg'
+        ];
+
+        const REGIONS = {
+            'volcano': { name: 'Вулканические горы', color: '#ef4444' }, // red
+            'forest': { name: 'Леса и зелень', color: '#22c55e' }, // green
+            'desert': { name: 'Песчаные земли', color: '#eab308' }, // yellow
+            'ice': { name: 'Ледяные горы', color: '#3b82f6' }, // blue
+            'ruins': { name: 'Руины и пирамиды', color: '#a855f7' }, // purple
+            'city': { name: 'Город магов', color: '#ec4899' } // pink
+        };
+
+        // App State
+        let state = {
+            selectedCharacter: null,
+            progress: {
+                'volcano': [],
+                'forest': [],
+                'desert': [],
+                'ice': [],
+                'ruins': [],
+                'city': []
+            },
+            currentRegion: null,
+            currentNodeId: null // Where the character is currently standing
+        };
+
+        function loadState() {
+            const saved = localStorage.getItem('magicWorldState');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    state.selectedCharacter = parsed.selectedCharacter || null;
+                    state.progress = parsed.progress || state.progress;
+                } catch (e) {
+                    console.error("Error loading state", e);
+                }
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem('magicWorldState', JSON.stringify({
+                selectedCharacter: state.selectedCharacter,
+                progress: state.progress
+            }));
+        }
+        
+        function resetProgress() {
+            if(confirm("Вы уверены, что хотите сбросить весь прогресс?")) {
+                state.progress = {
+                    'volcano': [], 'forest': [], 'desert': [], 'ice': [], 'ruins': [], 'city': []
+                };
+                saveState();
+                alert("Прогресс сброшен!");
+            }
+        }
+
+        function renderCharacters() {
+            const grid = document.getElementById('character-grid');
+            grid.innerHTML = '';
+            
+            CHARACTERS.forEach((src, idx) => {
+                const div = document.createElement('div');
+                div.className = `char-card w-full aspect-square rounded-2xl border-4 border-transparent overflow-hidden ${state.selectedCharacter === src ? 'selected' : ''}`;
+                div.innerHTML = `<img src="${src}" alt="Character ${idx}" class="w-full h-full object-cover">`;
+                div.onclick = () => selectCharacter(src, div);
+                grid.appendChild(div);
+            });
+
+            if (state.selectedCharacter) {
+                document.getElementById('btn-start').classList.remove('hidden');
+            }
+        }
+
+        function selectCharacter(src, element) {
+            state.selectedCharacter = src;
+            saveState();
+            
+            // Remove selection from all
+            document.querySelectorAll('.char-card').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            
+            document.getElementById('btn-start').classList.remove('hidden');
+        }
+
+        function changeScreen(screenName) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(`screen-${screenName}`).classList.add('active');
+
+            if (screenName === 'map') {
+                state.currentNodeId = null; // Reset character position when returning to map
+                state.currentRegion = null;
+            }
+        }
+
+        // Generate winding path coordinates for 20 nodes
+        function generateNodePath() {
+            const nodes = [];
+            for (let i = 0; i < 20; i++) {
+                // Creates a snake-like path across the screen
+                const progress = i / 19;
+                
+                // x goes back and forth
+                const xPhase = Math.sin(progress * Math.PI * 2.5);
+                const x = 50 + xPhase * 35; // 15% to 85%
+                
+                // y goes generally bottom to top
+                const y = 85 - (progress * 70); // 85% to 15%
+                
+                // Add some noise
+                const noiseX = (Math.random() - 0.5) * 5;
+                const noiseY = (Math.random() - 0.5) * 5;
+
+                nodes.push({
+                    id: i,
+                    x: Math.min(95, Math.max(5, x + noiseX)),
+                    y: Math.min(95, Math.max(5, y + noiseY))
+                });
+            }
+            return nodes;
+        }
+
+        let currentNodesLayout = [];
+
+        function openRegion(regionId) {
+            state.currentRegion = regionId;
+            state.currentNodeId = null; // Character starts at corner
+            
+            document.getElementById('region-title').textContent = REGIONS[regionId].name;
+            document.getElementById('region-title').style.color = REGIONS[regionId].color;
+            
+            // Setup character avatar
+            const charEl = document.getElementById('active-character');
+            charEl.style.backgroundImage = `url('${state.selectedCharacter}')`;
+            moveCharacterToCorner();
+
+            renderNodes();
+            changeScreen('region');
+        }
+
+        function renderNodes() {
+            const container = document.getElementById('nodes-container');
+            container.innerHTML = '';
+            
+            // Generate layout once per region open
+            currentNodesLayout = generateNodePath();
+            
+            updateProgressText();
+
+            currentNodesLayout.forEach(node => {
+                const btn = document.createElement('div');
+                btn.className = 'node';
+                btn.style.left = `${node.x}%`;
+                btn.style.top = `${node.y}%`;
+                btn.id = `node-${node.id}`;
+                
+                if (state.progress[state.currentRegion].includes(node.id)) {
+                    btn.classList.add('completed');
+                }
+                
+                btn.onclick = () => handleNodeClick(node);
+                container.appendChild(btn);
+            });
+        }
+
+        function handleNodeClick(node) {
+            const regionProgress = state.progress[state.currentRegion];
+            const nodeEl = document.getElementById(`node-${node.id}`);
+            
+            // Case 1: Click the exact node the character is currently standing on
+            if (state.currentNodeId === node.id) {
+                // Remove completion, character goes to corner
+                const index = regionProgress.indexOf(node.id);
+                if (index > -1) {
+                    regionProgress.splice(index, 1);
+                }
+                nodeEl.classList.remove('completed');
+                nodeEl.classList.remove('active-node');
+                
+                state.currentNodeId = null;
+                moveCharacterToCorner();
+                saveState();
+                updateProgressText();
+                return;
+            }
+
+            // Case 2: Click a new node
+            // Mark previously active node as just 'completed' (remove active animation)
+            if (state.currentNodeId !== null) {
+                const prevNodeEl = document.getElementById(`node-${state.currentNodeId}`);
+                if (prevNodeEl) prevNodeEl.classList.remove('active-node');
+            }
+
+            // Mark new node as active and completed
+            if (!regionProgress.includes(node.id)) {
+                regionProgress.push(node.id);
+            }
+            
+            nodeEl.classList.add('completed');
+            nodeEl.classList.add('active-node');
+            
+            state.currentNodeId = node.id;
+            moveCharacterTo(node.x, node.y);
+            
+            saveState();
+            updateProgressText();
+        }
+
+        function moveCharacterToCorner() {
+            const charEl = document.getElementById('active-character');
+            charEl.style.left = '10%';
+            charEl.style.top = '90%';
+            // Remove active node highlight if exists
+            document.querySelectorAll('.node.active-node').forEach(n => n.classList.remove('active-node'));
+        }
+
+        function moveCharacterTo(xPercent, yPercent) {
+            const charEl = document.getElementById('active-character');
+            charEl.style.left = `${xPercent}%`;
+            charEl.style.top = `${yPercent}%`;
+        }
+
+        function updateProgressText() {
+            const count = state.progress[state.currentRegion].length;
+            document.getElementById('region-progress-text').textContent = `Заданий: ${count}/20`;
+        }
+
+        document.getElementById('btn-start').onclick = () => {
+            changeScreen('map');
+        };
+
+        window.onload = () => {
+            loadState();
+            renderCharacters();
+            
+            if (state.selectedCharacter) {
+                // If already selected, go straight to map for better UX, or let them pick again
+                // For this demo, let's keep them on character select so they see it works, 
+                // but highlight their previous choice.
+            }
+        };
+    </script>
+</body>
+</html>
