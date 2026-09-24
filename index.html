@@ -51,7 +51,7 @@
             width: 100%;
             height: 100%;
             background-image: url('dc55376926f3c2cfe9a18a53802cd044.jpg');
-            background-size: cover;
+            background-size: contain;
             background-position: center;
         }
 
@@ -184,7 +184,7 @@
         <div id="map-container">
             <!-- Interactive SVG Regions -->
             <!-- Coordinates are relative (viewBox 0 0 100 100) -->
-            <svg id="map-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <svg id="map-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
                 <polygon class="map-region" points="0,0 45,0 35,45 0,40" data-region="Вулканические горы" onclick="openRegion('volcano')"></polygon>
                 <polygon class="map-region" points="45,0 100,0 100,45 60,55 35,45" data-region="Леса и зелень" onclick="openRegion('forest')"></polygon>
                 <polygon class="map-region" points="0,40 35,45 40,70 20,100 0,100" data-region="Песчаные земли" onclick="openRegion('desert')"></polygon>
